@@ -54,10 +54,10 @@ class ModelDataLoader():
         ).astype(bool)
         
         train_trial_idxs, test_trial_idxs = trial_idxs[train_mask], trial_idxs[test_mask]
-        train_time_idxss, test_time_idxs = time_idxs[train_mask], time_idxs[test_mask]
+        train_time_idxs, test_time_idxs = time_idxs[train_mask], time_idxs[test_mask]
         train_spike_features, test_spike_features = spike_features[train_mask], spike_features[test_mask]
         
-        return train_spike_features, train_trial_idxs, train_time_idxss, \
+        return train_spike_features, train_trial_idxs, train_time_idxs, \
                test_spike_features, test_trial_idxs, test_time_idxs
     
 
@@ -251,7 +251,7 @@ def train_advi(
     """
     
     assert max_iter > 5, "need more iterations to train the model."
-    N = spike_features.shape[0]
+    N = len(torch.unique(trial_idxs))
     n_batches, batch_size = len(batch_idxs), len(batch_idxs[0])
     fast_compute = False if batch_size > 1 else True
     
@@ -262,8 +262,7 @@ def train_advi(
             
             idx = np.random.choice(range(n_batches), 1).item()
             batch_idx = batch_idxs[idx]
-            mask = torch.logical_and(trial_idxs >= np.min(batch_idx), 
-                                     trial_idxs <= np.max(batch_idx))
+            mask = np.sum([trial_idxs[0] == idx for idx in batch_idx], axis=0)
 
             batch_spike_features = spike_features[mask]
             batch_behaviors = behaviors[list(batch_idx)]
@@ -291,10 +290,7 @@ def train_advi(
             tot_elbo = 0
             for idx, batch_idx in enumerate(batch_idxs): 
                 
-                mask = torch.logical_and(
-                    trial_idxs >= np.min(batch_idx), 
-                    trial_idxs <= np.max(batch_idx)
-                )
+                mask = np.sum([trial_idxs[0] == idx for idx in batch_idx], axis=0)
                 
                 batch_spike_features = spike_features[mask]
                 batch_behaviors = behaviors[list(batch_idx)]
@@ -374,8 +370,7 @@ def compute_posterior_weight_matrix(
         mixture_weights = np.exp(log_pis)
 
         weight_matrix = np.zeros((n_k, n_c, n_t))
-        for i in tqdm(range(n_k), desc="Compute weight matrix"):
-            k = align_idxs[i]
+        for k in tqdm(range(n_k), desc="Compute weight matrix"):
             for t in range(n_t):
                 post_gmm = GaussianMixture(n_components=n_c, covariance_type='full')
                 post_gmm.weights_ = mixture_weights[k,:,t]
