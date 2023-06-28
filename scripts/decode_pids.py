@@ -87,6 +87,7 @@ if __name__ == "__main__":
                     rest = rest[:-1]
                     regions.append(rest.split())
                 else:
+                    pids.append(line)
                     regions.append(None)
             args.pids = pids
             have_regions = any(r is not None for r in regions)
