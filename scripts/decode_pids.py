@@ -107,6 +107,9 @@ if __name__ == "__main__":
     args.out_path.mkdir(exist_ok=True)
     print(f"Saving to {args.out_path}")
 
+    reg_kinds = args.reg_kind.split(",")
+    multireg = len(reg_kinds) > 1
+
     # run the loop
     allprocs = []
     for i, pid in enumerate(args.pids):
@@ -126,16 +129,20 @@ if __name__ == "__main__":
         if have_regions:
             region = regions[i]
 
-        allprocs.append(
-            run_pid(
-                pid,
-                ephys_path,
-                args.out_path,
-                regions=region,
-                loc_suffix=args.loc_suffix,
-                reg_kind=args.reg_kind,
+        for reg_kind in args.reg_kind:
+            out_path = args.out_path
+            if multireg:
+                out_path = out_path / reg_kind
+            allprocs.append(
+                run_pid(
+                    pid,
+                    ephys_path,
+                    out_path,
+                    regions=region,
+                    loc_suffix=args.loc_suffix,
+                    reg_kind=reg_kind,
+                )
             )
-        )
 
     for _ in range(10):
         print("/")
