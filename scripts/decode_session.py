@@ -4,10 +4,8 @@ import sys
 from pathlib import Path
 
 scripts_dir = Path(__file__).resolve().parent
-decode_advi_py = scripts_dir / "decode_advi.py"
-assert decode_advi_py.exists()
-decode_cavi_py = scripts_dir / "decode_cavi.py"
-assert decode_cavi_py.exists()
+decode_py = scripts_dir / "decode_ibl.py"
+assert decode_py.exists()
 h5_to_numpy_py = scripts_dir / "h5_to_numpy.py"
 assert h5_to_numpy_py.exists()
 
@@ -20,18 +18,11 @@ def decode(
     ephys_path,
     out_path,
     roi,
-    which="cavi",
+    behavior,
     batch_size=None,
     max_iter=None,
     learning_rate=None,
-    behavior=None,
 ):
-    if which == "cavi":
-        decode_py = decode_cavi_py
-    elif which == "advi":
-        decode_py = decode_advi_py
-    else:
-        assert False
     extra = []
     if batch_size is not None:
         extra.append(f"--batch_size={batch_size}")
@@ -39,8 +30,6 @@ def decode(
         extra.append(f"--max_iter={max_iter}")
     if learning_rate is not None:
         extra.append(f"--learning_rate={learning_rate}")
-    if behavior is not None:
-        extra.append(f"--behavior={behavior}")
     return subprocess.run(
         [
             sys.executable,
@@ -48,31 +37,37 @@ def decode(
             f"--pid={pid}",
             f"--ephys_path={ephys_path}",
             f"--out_path={out_path}",
+            f"--behavior={behavior}",
             f"--brain_region={roi}",
-            "--featurize_behavior",
+            f"--behavior={behavior}",
             *extra,
         ],
     )
 
 
 def process_pid(
-    pid, ephys_path, out_path, regions=["ca1", "dg", "lp", "po", "visa"], loc_suffix="",
+    pid,
+    ephys_path,
+    out_path,
+    regions=["ca1", "dg", "lp", "po", "visa"],
+    loc_suffix="",
+    reg_kind="dredge",
 ):
-    subprocess.run(["python", h5_to_numpy_py, f"--root_path={ephys_path}", f"--loc-suffix={loc_suffix}"])
+    subprocess.run(
+        [
+            "python",
+            h5_to_numpy_py,
+            f"--root_path={ephys_path}",
+            f"--loc-suffix={loc_suffix}",
+            f"--reg-kind={reg_kind}",
+        ]
+    )
 
     print(grep_prefix, "Decoding binary choices")
-    for roi in regions:
-        decode(pid, ephys_path, out_path, roi, max_iter=3)
-    decode(
-        pid,
-        ephys_path,
-        out_path,
-        "all",
-        behavior="choice",
-        which="advi",
-        batch_size=1,
-        learning_rate="1e-2",
-    )
+    for roi in regions + ["all"]:
+        decode(
+            pid, ephys_path, out_path, roi, behavior="choice", max_iter=1000
+        )
 
     print(grep_prefix, "Decoding continuous behaviors")
     for roi in regions + ["all"]:
@@ -82,9 +77,7 @@ def process_pid(
                 ephys_path,
                 out_path,
                 roi,
-                which="advi",
                 behavior=behavior,
-                batch_size=6,
                 learning_rate="1e-3",
             )
 
@@ -92,11 +85,14 @@ def process_pid(
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
 
-    ap.add_argument("ephys_path", type=Path, help="Folder where h5 for this PID is")
+    ap.add_argument(
+        "ephys_path", type=Path, help="Folder where h5 for this PID is"
+    )
     ap.add_argument("out_path", type=Path)
     ap.add_argument("pid", type=str)
     ap.add_argument("--regions", type=str, default="ca1,dg,lp,po,visa")
     ap.add_argument("--loc-suffix", type=str, default="")
+    ap.add_argument("--reg-kind", type=str, default="dredge")
 
     args = ap.parse_args()
 
@@ -111,9 +107,17 @@ if __name__ == "__main__":
     # run the loop
     print(grep_prefix, args.pid)
 
-    if not args.ephys_path.exists() or not (args.ephys_path / "subtraction.h5").exists():
+    if (
+        not args.ephys_path.exists()
+        or not (args.ephys_path / "subtraction.h5").exists()
+    ):
         print(f"{grep_prefix} No ephys for {args.pid=}. Skip.")
     else:
         process_pid(
-            args.pid, args.ephys_path, args.out_path, regions=args.regions, loc_suffix=args.loc_suffix,
+            args.pid,
+            args.ephys_path,
+            args.out_path,
+            regions=args.regions,
+            loc_suffix=args.loc_suffix,
+            reg_kind=args.reg_kind,
         )
