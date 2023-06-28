@@ -53,6 +53,7 @@ if __name__ == "__main__":
     ap.add_argument("--ephys-dir-prefix", type=str, default="pid")
     ap.add_argument("--loc-suffix", type=str, default="")
     ap.add_argument("--reg-kind", type=str, default="dredge")
+    ap.add_argument("--skip-done", action="store_true")
 
     args = ap.parse_args()
 
@@ -99,6 +100,7 @@ if __name__ == "__main__":
     if have_regions:
         print("And regions:")
         print("\n - ".join(map(str, regions)))
+        assert not args.skip_done  # didn't implement that logic...
 
     # create outdir
     args.out_path.mkdir(exist_ok=True)
@@ -113,6 +115,10 @@ if __name__ == "__main__":
 
         if not ephys_path.exists():
             print(f"No ephys dir for {pid=}. Skip.")
+            continue
+
+        if args.skip_done and (args.out_path / pid / "wheel_speed" / "all").exists():
+            print("Last region+behavior dir exists, skipping.")
             continue
 
         region = None
