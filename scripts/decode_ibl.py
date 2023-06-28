@@ -117,7 +117,7 @@ if __name__ == "__main__":
             max_iter=args.max_iter,
             fast_compute=args.fast_compute,
             stochastic=args.stochastic,
-            penalty_strength=args.penalty_strength,
+            # penalty_strength=args.penalty_strength,
             device=device,
             n_workers=args.n_workers,
         )

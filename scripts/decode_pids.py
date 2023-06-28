@@ -24,24 +24,42 @@ srun = [
 ]
 
 
-def run_pid(pid, ephys_path, out_path, regions=None, loc_suffix="", reg_kind="dredge"):
-    return subprocess.Popen(
-        [
-            *srun,
-            sys.executable,
-            decode_session_py,
-            str(ephys_path.resolve()),
-            str(out_path.resolve()),
-            pid,
-            f"--loc-suffix={loc_suffix}",
-            f"--reg-kind={reg_kind}",
-            *(
-                [f"--regions={','.join(regions)}"]
-                if regions is not None
-                else []
-            ),
-        ]
-    )
+def run_pid(pid, ephys_path, out_path, regions=None, loc_suffix="", reg_kind="dredge", slurm=False):
+    if slurm:
+        return subprocess.Popen(
+            [
+                *srun,
+                sys.executable,
+                decode_session_py,
+                str(ephys_path.resolve()),
+                str(out_path.resolve()),
+                pid,
+                f"--loc-suffix={loc_suffix}",
+                f"--reg-kind={reg_kind}",
+                *(
+                    [f"--regions={','.join(regions)}"]
+                    if regions is not None
+                    else []
+                ),
+            ]
+        )
+    else:
+        return subprocess.run(
+            [
+                sys.executable,
+                decode_session_py,
+                str(ephys_path.resolve()),
+                str(out_path.resolve()),
+                pid,
+                f"--loc-suffix={loc_suffix}",
+                f"--reg-kind={reg_kind}",
+                *(
+                    [f"--regions={','.join(regions)}"]
+                    if regions is not None
+                    else []
+                ),
+            ]
+        )
 
 
 if __name__ == "__main__":
@@ -54,6 +72,7 @@ if __name__ == "__main__":
     ap.add_argument("--loc-suffix", type=str, default="")
     ap.add_argument("--reg-kind", type=str, default="dredge")
     ap.add_argument("--skip-done", action="store_true")
+    ap.add_argument("--slurm", action="store_true")
 
     args = ap.parse_args()
 
@@ -141,8 +160,13 @@ if __name__ == "__main__":
                     regions=region,
                     loc_suffix=args.loc_suffix,
                     reg_kind=reg_kind,
+                    slurm=args.slurm,
                 )
             )
+
+    if not args.slurm:
+        print("OK!")
+        sys.exit(0)
 
     for _ in range(10):
         print("/")
